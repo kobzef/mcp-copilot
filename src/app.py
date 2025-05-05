@@ -8,6 +8,8 @@ for extracurricular activities at Mergington High School.
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from typing import Dict
 import os
 from pathlib import Path
 
@@ -18,6 +20,15 @@ app = FastAPI(title="Mergington High School API",
 current_dir = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=os.path.join(Path(__file__).parent,
           "static")), name="static")
+
+# Basic authentication setup
+security = HTTPBasic()
+
+# In-memory database for counselors
+counselors = {
+    "counselor1": "password123",
+    "counselor2": "securepass456"
+}
 
 # In-memory activity database
 activities = {
@@ -130,3 +141,19 @@ def unregister_from_activity(activity_name: str, email: str):
     # Remove student
     activity["participants"].remove(email)
     return {"message": f"Unregistered {email} from {activity_name}"}
+
+
+@app.post("/counselor/login")
+def counselor_login(credentials: HTTPBasicCredentials):
+    """Login endpoint for counselors"""
+    if credentials.username in counselors and counselors[credentials.username] == credentials.password:
+        return {"message": "Login successful", "username": credentials.username}
+    raise HTTPException(status_code=401, detail="Invalid credentials")
+
+
+@app.get("/counselor/activities")
+def get_all_activities(credentials: HTTPBasicCredentials):
+    """Allow counselors to view all activities, attendance, and marks"""
+    if credentials.username in counselors and counselors[credentials.username] == credentials.password:
+        return activities
+    raise HTTPException(status_code=401, detail="Unauthorized access")
